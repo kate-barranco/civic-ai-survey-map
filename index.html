@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Civic AI Index — Landscape Map</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: rgba(255,255,255,0.08);
+    --text-primary: rgba(255,255,255,0.92);
+    --text-secondary: rgba(255,255,255,0.5);
+    --text-muted: rgba(255,255,255,0.3);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  body { background: var(--bg); font-family: var(--font); color: var(--text-primary); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+  #header { flex-shrink: 0; padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); }
+  #header h1 { font-size: 13px; font-weight: 500; letter-spacing: 0.03em; color: var(--text-primary); }
+  #header p { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  #legend { display: flex; align-items: center; gap: 14px; font-size: 11px; color: var(--text-secondary); }
+  .li { display: flex; align-items: center; gap: 5px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  #stage { flex: 1; position: relative; overflow: hidden; cursor: grab; }
+  #stage:active { cursor: grabbing; }
+  #stage svg { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
+  .nd { position: absolute; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; transition: transform .15s ease, filter .15s ease; padding: 6px; }
+  .nd:hover { transform: scale(1.08); filter: brightness(1.1); z-index: 80; }
+  .nd span { display: block; font-family: var(--font); line-height: 1.25; pointer-events: none; color: var(--text-primary); }
+  #tt { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 12px 15px; max-width: 240px; font-family: var(--font); font-size: 12px; color: var(--text-secondary); line-height: 1.6; z-index: 200; display: none; }
+  #tt b { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-primary); }
+  #hint { flex-shrink: 0; padding: 7px 18px; font-size: 10px; color: var(--text-muted); border-top: 1px solid var(--border); background: var(--surface); letter-spacing: 0.02em; }
+</style>
+</head>
+<body>
+<div id="header">
+  <div>
+    <h1>Civic AI Index — Public Opinion Landscape</h1>
+    <p>NCoC · MVP Phase · May 2026</p>
+  </div>
+  <div id="legend">
+    <span style="font-weight:500;color:rgba(255,255,255,0.7)">Coverage:</span>
+    <span class="li"><span class="dot" style="background:#1a9268"></span>Dense</span>
+    <span class="li"><span class="dot" style="background:#c47c14"></span>Moderate</span>
+    <span class="li"><span class="dot" style="background:#b93030"></span>Thin / gap</span>
+    <span class="li"><span class="dot" style="background:#4a42a8"></span>Cross-cutting</span>
+    <span style="margin-left:8px;color:rgba(255,255,255,0.2)">Drag · scroll to zoom · hover nodes</span>
+  </div>
+</div>
+<div id="stage"><svg id="sv"></svg></div>
+<div id="tt"></div>
+<div id="hint">Civic AI Index MVP · Survey synthesis across 14 sources (2023–2026) · Prepared for NCoC</div>
+<script>
+const CW=1500,CH=1100;
+const nodes=[
+  {id:'center',   x:750,y:550,r:72, bg:'#1a2744',label:'AI +\nCivic Life',          desc:'The landscape of U.S. public opinion on how AI shapes civic life, democratic participation, and institutional infrastructure. Synthesized from 14 surveys (2023–2026).',center:true},
+  {id:'elections',x:310,y:185,r:56, bg:'#1a9268',label:'Elections &\nDemocracy',    desc:'Dense. Deepfakes concern 60–73% very concerned. AI propaganda: 57% never acceptable. Political ad rules: 83% support disclosure/ban. AI impact on elections: 50% public / 61% experts negative. Strong cross-partisan findings.',dense:true},
+  {id:'news',     x:750,y:105,r:56, bg:'#1a9268',label:'News &\nInformation',       desc:'Dense. AI as news source: 75% never, 2% often (Aug 2025 baseline). AI search summaries: 45% see often, 46% distrust. "Fake" label up 14→33% (2023–2026). AI impersonation concern: 78% extremely/very concerned.',dense:true},
+  {id:'gov',      x:1190,y:185,r:56,bg:'#1a9268',label:'Governance &\nInst. Trust', desc:'Dense, longitudinal. Regulation support: 74–90% want more. Government confidence: only 7%. Tech company confidence: 13%. Democratic legitimacy: just 5% feel AI development represents their interests.',dense:true},
+  {id:'workforce',x:1230,y:690,r:50,bg:'#1a9268',label:'Workforce &\nEducation',   desc:'Dense, Gen Z longitudinal. 67–70% expect AI to eliminate jobs. 67% say AI erodes critical thinking. School AI rules jumped 51→74% in one year. Equity: lower-income schools provide tools; higher-income schools govern.',dense:true},
+  {id:'baseline', x:750,y:960,r:56, bg:'#1a9268',label:'Adoption &\nSentiment',    desc:'Dense, longitudinal 2023–2026. 52% use LLMs. 80% very/somewhat concerned. Gen Z: excitement ↓14 pts, anger ↑9 pts 2025–26. Trust–use paradox confirmed. U.S. is global outlier — most skeptical of any country surveyed.',dense:true},
+  {id:'govuse',   x:1210,y:430,r:44,bg:'#c47c14',label:'Govt Service\nDelivery',   desc:'Moderate, international data available. Support: public service AI 57% (lowest globally), fiscal efficiency 43%, cybersecurity 60%. Major gap: civic navigation behavior entirely unmeasured.'},
+  {id:'agency',   x:240,y:480,r:43, bg:'#c47c14',label:'Agency &\nControl',        desc:'Thin/moderate. One Pew wave only. 59% feel little or no control over AI. 55% want more. No longitudinal tracking. No civic-specific autonomy data.'},
+  {id:'literacy', x:370,y:820,r:42, bg:'#c47c14',label:'Literacy &\nDetection',    desc:'Moderate, self-assessed only. 8% say they know "a lot" about AI. 42% not confident detecting AI-generated video. Text and audio detection gaps unmeasured. Civic AI literacy not isolated.'},
+  {id:'social',   x:250,y:730,r:40, bg:'#c47c14',label:'Social\nConnection',       desc:'Moderate-thin. 63% of LLM users expect AI to cause social isolation. 36% not excited at all about AI companions. No survey asks whether AI-mediated environments affect interpersonal or civic trust.'},
+  {id:'global',   x:1120,y:910,r:40,bg:'#c47c14',label:'Global Power &\nDemocracy',desc:'Thin. One Gallup source. Majority say U.S. AI leadership matters. Multilateralism preferred. No data connecting global AI competition to domestic civic trust or democratic participation.'},
+  {id:'civicgap', x:750,y:430,r:50, bg:'#b93030',label:'Civic Behavior\n× AI',     desc:'THE LARGEST GAP. No survey has asked: Did AI change how you registered to vote? Did AI help or mislead you on benefits? Did you use AI to navigate government? Concern is measured. Consequence is not. NCoC\'s differentiation opportunity.',gap:true},
+  {id:'equity',   x:490,y:940,r:42, bg:'#b93030',label:'Equity &\nRepresentation', desc:'Thin. Demographic breakdowns scattered but not civic-specific. AI designers seen as representing Black adults poorly (19% well-represented vs 42% for White adults). Civically underserved populations entirely absent.',gap:true},
+  {id:'local',    x:960,y:120,r:38, bg:'#b93030',label:'Local News\n& AI',          desc:'Confirmed gap. Zero data on AI\'s role in local civic information environments. All existing data is national and platform-level. Critical absence given the scale of local news deserts.',gap:true},
+  {id:'econlink', x:920,y:870,r:38, bg:'#b93030',label:'Economic Anxiety\n→ Civic', desc:'Confirmed gap. Workforce anxiety about AI is extremely well-documented. But no survey asks whether that anxiety changes civic behavior — mobilization, disengagement, or withdrawal. The link is unmeasured.',gap:true},
+  {id:'distrust', x:750,y:700,r:40, bg:'#4a42a8',label:'Institutional\nDistrust',  desc:'Cross-cutting. AI distrust overlaps with pre-existing institutional distrust — they reinforce each other. Embedding AI in civic contexts may inherit, not overcome, existing crisis.',cross:true},
+  {id:'bipartisan',x:470,y:310,r:38,bg:'#4a42a8',label:'Cross-partisan\nConsensus',desc:'Cross-cutting. Regulation, deepfake concern, development pause: Dem ≈ Rep. Unlike climate change (highly polarized), AI concern is not. Key narrative opportunity for NCoC positioning.',cross:true},
+  {id:'expertgap',x:1020,y:330,r:38,bg:'#4a42a8',label:'Public vs.\nExpert Divide',desc:'Cross-cutting. AI experts far more optimistic (56% positive 20yr impact vs 17% public). Trust AI for important decisions: 51% experts yes vs 13% public. Growing divide runs through elections, news, governance, and jobs.',cross:true},
+];
+const edges=[
+  {a:'center',b:'elections',label:'democratic integrity'},
+  {a:'center',b:'news',label:'information environment'},
+  {a:'center',b:'gov',label:'who governs AI'},
+  {a:'center',b:'workforce',label:'economic precondition'},
+  {a:'center',b:'baseline',label:'adoption trajectory'},
+  {a:'center',b:'civicgap',label:'unmeasured core'},
+  {a:'center',b:'distrust',label:'foundational force'},
+  {a:'elections',b:'bipartisan',label:'rare Dem = Rep agreement'},
+  {a:'elections',b:'civicgap',label:'concern ≠ behavior'},
+  {a:'elections',b:'news',label:'shared disinformation concern'},
+  {a:'news',b:'local',label:'national ≠ local'},
+  {a:'news',b:'literacy',label:'detection gap'},
+  {a:'news',b:'civicgap',label:'civic info use absent'},
+  {a:'gov',b:'govuse',label:'distrust shapes uptake'},
+  {a:'gov',b:'expertgap',label:'confidence diverges'},
+  {a:'gov',b:'bipartisan',label:'cross-party demand'},
+  {a:'workforce',b:'baseline',label:'anxiety feeds sentiment'},
+  {a:'workforce',b:'econlink',label:'anxiety → action?'},
+  {a:'workforce',b:'equity',label:'uneven impact'},
+  {a:'baseline',b:'social',label:'isolation paradox'},
+  {a:'baseline',b:'literacy',label:'use ≠ understanding'},
+  {a:'baseline',b:'global',label:'U.S. outlier position'},
+  {a:'agency',b:'social',label:'autonomy + connection'},
+  {a:'agency',b:'civicgap',label:'civic control absent'},
+  {a:'distrust',b:'gov',label:'compounds low confidence'},
+  {a:'distrust',b:'social',label:'erodes civic fabric'},
+  {a:'distrust',b:'civicgap',label:'why behavior matters'},
+  {a:'expertgap',b:'news',label:'who shapes civic info'},
+  {a:'expertgap',b:'govuse',label:'adoption enthusiasm gap'},
+  {a:'econlink',b:'equity',label:'disproportionate burden'},
+  {a:'govuse',b:'civicgap',label:'use support ≠ actual use'},
+];
+const stage=document.getElementById('stage');
+const sv=document.getElementById('sv');
+const tt=document.getElementById('tt');
+let sc=stage.offsetWidth/CW,tx=0,ty=0,drag=false,lx=0,ly=0;
+function toS(x,y){return{x:x*sc+tx,y:y*sc+ty};}
+function render(){
+  const W=stage.offsetWidth,H=stage.offsetHeight;
+  sv.setAttribute('width',W);sv.setAttribute('height',H);sv.innerHTML='';
+  for(const e of edges){
+    const na=nodes.find(n=>n.id===e.a),nb=nodes.find(n=>n.id===e.b);
+    if(!na||!nb)continue;
+    const pa=toS(na.x,na.y),pb=toS(nb.x,nb.y);
+    const dx=pb.x-pa.x,dy=pb.y-pa.y,dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<1)continue;
+    const ux=dx/dist,uy=dy/dist;
+    const x1=pa.x+ux*na.r*sc,y1=pa.y+uy*na.r*sc;
+    const x2=pb.x-ux*nb.r*sc,y2=pb.y-uy*nb.r*sc;
+    const isDense=(na.dense||na.center)&&(nb.dense||nb.center);
+    const isGap=na.gap||nb.gap;
+    const isCross=na.cross||nb.cross;
+    const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x1);line.setAttribute('y1',y1);
+    line.setAttribute('x2',x2);line.setAttribute('y2',y2);
+    line.setAttribute('stroke',isGap?'rgba(185,48,48,0.3)':isCross?'rgba(100,90,200,0.28)':isDense?'rgba(26,146,104,0.35)':'rgba(255,255,255,0.1)');
+    line.setAttribute('stroke-width',isDense?1.6:0.9);
+    if(isGap)line.setAttribute('stroke-dasharray','4 3');
+    sv.appendChild(line);
+    if(e.label&&sc>0.48){
+      const mx=(x1+x2)/2,my=(y1+y2)/2;
+      const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+      g.setAttribute('transform',`translate(${mx},${my})`);
+      const tw=e.label.length*5.2+12;
+      const pill=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      pill.setAttribute('x',-tw/2);pill.setAttribute('y',-8);
+      pill.setAttribute('width',tw);pill.setAttribute('height',14);
+      pill.setAttribute('rx',7);pill.setAttribute('fill','#1a1d27');
+      pill.setAttribute('stroke',isCross?'rgba(100,90,200,0.4)':isGap?'rgba(185,48,48,0.35)':'rgba(255,255,255,0.08)');
+      pill.setAttribute('stroke-width','0.5');
+      g.appendChild(pill);
+      const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+      txt.setAttribute('x',0);txt.setAttribute('y',1);
+      txt.setAttribute('text-anchor','middle');txt.setAttribute('dominant-baseline','middle');
+      txt.setAttribute('font-family','-apple-system, BlinkMacSystemFont, sans-serif');
+      txt.setAttribute('font-size','9px');
+      txt.setAttribute('fill',isCross?'rgba(160,150,230,0.9)':isGap?'rgba(210,100,100,0.9)':'rgba(255,255,255,0.35)');
+      txt.textContent=e.label;
+      g.appendChild(txt);
+      sv.appendChild(g);
+    }
+  }
+  document.querySelectorAll('.nd').forEach(el=>el.remove());
+  for(const n of nodes){
+    const{x:sx,y:sy}=toS(n.x,n.y);
+    const r=n.r*sc;
+    const el=document.createElement('div');
+    el.className='nd';
+    const fs=Math.max(9,Math.min(13.5,r*0.27));
+    el.style.cssText=`width:${r*2}px;height:${r*2}px;left:${sx-r}px;top:${sy-r}px;background:${n.bg};z-index:10;box-shadow:0 2px 20px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06);border:${n.gap?'1.5px dashed rgba(255,255,255,0.2)':n.center?'1px solid rgba(255,255,255,0.1)':'1px solid rgba(255,255,255,0.06)'};`;
+    el.innerHTML=n.label.split('\n').map(l=>`<span style="font-size:${fs}px;font-weight:${n.center?'500':'400'};letter-spacing:0.01em">${l}</span>`).join('');
+    el.addEventListener('mouseenter',e=>showTip(n,e));
+    el.addEventListener('mousemove',e=>moveTip(e));
+    el.addEventListener('mouseleave',()=>tt.style.display='none');
+    stage.appendChild(el);
+  }
+}
+function showTip(n,e){tt.innerHTML=`<b>${n.label.replace('\n',' ')}</b>${n.desc}`;tt.style.display='block';moveTip(e);}
+function moveTip(e){
+  const rect=stage.getBoundingClientRect();
+  let lx=e.clientX-rect.left+16,ly=e.clientY-rect.top+16;
+  if(lx+250>stage.offsetWidth)lx=e.clientX-rect.left-260;
+  if(ly+160>stage.offsetHeight)ly=e.clientY-rect.top-130;
+  tt.style.left=lx+'px';tt.style.top=ly+'px';
+}
+stage.addEventListener('mousedown',e=>{if(!e.target.classList.contains('nd')){drag=true;lx=e.clientX;ly=e.clientY;}});
+window.addEventListener('mousemove',e=>{if(!drag)return;tx+=e.clientX-lx;ty+=e.clientY-ly;lx=e.clientX;ly=e.clientY;render();});
+window.addEventListener('mouseup',()=>drag=false);
+stage.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const rect=stage.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  const d=e.deltaY>0?0.88:1.13;
+  const ns=Math.max(0.3,Math.min(2.5,sc*d));
+  tx=mx-(mx-tx)*ns/sc;ty=my-(my-ty)*ns/sc;sc=ns;render();
+},{passive:false});
+let lt=null;
+stage.addEventListener('touchstart',e=>{if(e.touches.length===1)lt={x:e.touches[0].clientX,y:e.touches[0].clientY};},{passive:true});
+stage.addEventListener('touchmove',e=>{e.preventDefault();if(e.touches.length===1&&lt){tx+=e.touches[0].clientX-lt.x;ty+=e.touches[0].clientY-lt.y;lt={x:e.touches[0].clientX,y:e.touches[0].clientY};render();}},{passive:false});
+stage.addEventListener('touchend',()=>lt=null);
+render();
+window.addEventListener('resize',()=>{sc=stage.offsetWidth/CW;render();});
+</script>
+</body>
+</html>
