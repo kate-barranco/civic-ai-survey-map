@@ -24,11 +24,14 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   #stage { flex: 1; position: relative; overflow: hidden; cursor: grab; }
   #stage:active { cursor: grabbing; }
-  #stage svg { position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible; }
+  #stage svg { position: absolute; top: 0; left: 0; overflow: visible; }
   .nd { position: absolute; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; cursor: pointer; transition: transform .15s ease, filter .15s ease; padding: 6px; }
   .nd:hover { transform: scale(1.08); filter: brightness(1.1); z-index: 80; }
   .nd span { display: block; font-family: var(--font); line-height: 1.25; pointer-events: none; color: var(--text-primary); }
-  #tt { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 12px 15px; max-width: 240px; font-family: var(--font); font-size: 12px; color: var(--text-secondary); line-height: 1.6; z-index: 200; display: none; }
+  .edge-hit { cursor: pointer; }
+  .edge-hit:hover .edge-pill { opacity: 1; }
+  .edge-pill { transition: opacity .15s; }
+  #tt { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 12px 15px; max-width: 260px; font-family: var(--font); font-size: 12px; color: var(--text-secondary); line-height: 1.6; z-index: 200; display: none; }
   #tt b { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-primary); }
   #hint { flex-shrink: 0; padding: 7px 18px; font-size: 10px; color: var(--text-muted); border-top: 1px solid var(--border); background: var(--surface); letter-spacing: 0.02em; }
 </style>
@@ -45,7 +48,7 @@
     <span class="li"><span class="dot" style="background:#c47c14"></span>Moderate</span>
     <span class="li"><span class="dot" style="background:#b93030"></span>Thin / gap</span>
     <span class="li"><span class="dot" style="background:#4a42a8"></span>Cross-cutting</span>
-    <span style="margin-left:8px;color:rgba(255,255,255,0.2)">Drag · scroll to zoom · hover nodes</span>
+    <span style="margin-left:8px;color:rgba(255,255,255,0.2)">Drag · scroll to zoom · hover nodes & threads</span>
   </div>
 </div>
 <div id="stage"><svg id="sv"></svg></div>
@@ -74,46 +77,56 @@ const nodes=[
   {id:'expertgap',x:1020,y:330,r:38,bg:'#4a42a8',label:'Public vs.\nExpert Divide',desc:'Cross-cutting. AI experts far more optimistic (56% positive 20yr impact vs 17% public). Trust AI for important decisions: 51% experts yes vs 13% public. Growing divide runs through elections, news, governance, and jobs.',cross:true},
 ];
 const edges=[
-  {a:'center',b:'elections',label:'democratic integrity'},
-  {a:'center',b:'news',label:'information environment'},
-  {a:'center',b:'gov',label:'who governs AI'},
-  {a:'center',b:'workforce',label:'economic precondition'},
-  {a:'center',b:'baseline',label:'adoption trajectory'},
-  {a:'center',b:'civicgap',label:'unmeasured core'},
-  {a:'center',b:'distrust',label:'foundational force'},
-  {a:'elections',b:'bipartisan',label:'rare Dem = Rep agreement'},
-  {a:'elections',b:'civicgap',label:'concern ≠ behavior'},
-  {a:'elections',b:'news',label:'shared disinformation concern'},
-  {a:'news',b:'local',label:'national ≠ local'},
-  {a:'news',b:'literacy',label:'detection gap'},
-  {a:'news',b:'civicgap',label:'civic info use absent'},
-  {a:'gov',b:'govuse',label:'distrust shapes uptake'},
-  {a:'gov',b:'expertgap',label:'confidence diverges'},
-  {a:'gov',b:'bipartisan',label:'cross-party demand'},
-  {a:'workforce',b:'baseline',label:'anxiety feeds sentiment'},
-  {a:'workforce',b:'econlink',label:'anxiety → action?'},
-  {a:'workforce',b:'equity',label:'uneven impact'},
-  {a:'baseline',b:'social',label:'isolation paradox'},
-  {a:'baseline',b:'literacy',label:'use ≠ understanding'},
-  {a:'baseline',b:'global',label:'U.S. outlier position'},
-  {a:'agency',b:'social',label:'autonomy + connection'},
-  {a:'agency',b:'civicgap',label:'civic control absent'},
-  {a:'distrust',b:'gov',label:'compounds low confidence'},
-  {a:'distrust',b:'social',label:'erodes civic fabric'},
-  {a:'distrust',b:'civicgap',label:'why behavior matters'},
-  {a:'expertgap',b:'news',label:'who shapes civic info'},
-  {a:'expertgap',b:'govuse',label:'adoption enthusiasm gap'},
-  {a:'econlink',b:'equity',label:'disproportionate burden'},
-  {a:'govuse',b:'civicgap',label:'use support ≠ actual use'},
+  {a:'center',b:'elections',label:'democratic integrity',desc:'Elections are the domain where both the public and AI experts are most pessimistic about AI\'s impact — more negative than any other domain tested, including jobs, news, and criminal justice.'},
+  {a:'center',b:'news',label:'information environment',desc:'AI is entering a news ecosystem already under severe strain. 51% of Americans already find it hard to tell what\'s true in general news — before AI compounds the problem.'},
+  {a:'center',b:'gov',label:'who governs AI',desc:'Neither institution responsible for AI oversight — government or tech companies — is trusted by the public. Only 7% have confidence in government; only 13% in tech companies. A governance vacuum sits at the center of the landscape.'},
+  {a:'center',b:'workforce',label:'economic precondition',desc:'Economic security is a precondition for civic participation. A population consumed by job anxiety and adaptation pressure is a population with less capacity for civic engagement — but this link remains unmeasured.'},
+  {a:'center',b:'baseline',label:'adoption trajectory',desc:'Adoption is rising fast — from 27% frequent users in 2023 to 52% LLM users today — but sentiment is souring in parallel. More use does not mean more trust or more positive feeling.'},
+  {a:'center',b:'civicgap',label:'unmeasured core',desc:'Every region of this landscape circles around the same missing center: we know how Americans feel about AI, but not how AI is actually shaping what they do as citizens. Behavior data is the gap that holds everything else back.'},
+  {a:'center',b:'distrust',label:'foundational force',desc:'Institutional distrust is not a product of AI — it predates it. AI is arriving into an environment already defined by low confidence in government, media, and institutions. That context shapes everything.'},
+  {a:'elections',b:'bipartisan',label:'rare Dem = Rep agreement',desc:'On AI and elections, partisan lines largely dissolve. Both sides oppose deepfakes in journalism (72% each), support political ad disclosure, and are concerned about AI propaganda. This is one of the clearest cross-partisan signals in the entire dataset.'},
+  {a:'elections',b:'civicgap',label:'concern ≠ behavior',desc:'We can measure fear of AI in elections extensively — but no survey asks whether AI actually changed how someone voted, researched a candidate, or decided whether to participate. The gap between concern and civic action is the blind spot.'},
+  {a:'elections',b:'news',label:'shared disinformation concern',desc:'Deepfakes and AI-generated political content sit at the intersection of elections and news. The same content threatens both domains simultaneously — and the public\'s concern about each reinforces the other.'},
+  {a:'news',b:'local',label:'national ≠ local',desc:'All existing AI + news data is national and platform-level. But civic information is fundamentally local — school boards, city council, ballot measures. Local news deserts already exist; AI\'s role in them is entirely unmeasured.'},
+  {a:'news',b:'literacy',label:'detection gap',desc:'46% of Americans distrust AI search summaries — but 42% aren\'t confident they can tell AI-generated content from real content. Distrust without detection ability creates a specific kind of civic vulnerability.'},
+  {a:'news',b:'civicgap',label:'civic info use absent',desc:'34% of LLM users use AI for news and political information — but no survey asks whether people use AI specifically for civic information tasks like understanding ballot measures, finding polling locations, or navigating government services.'},
+  {a:'gov',b:'govuse',label:'distrust shapes uptake',desc:'Low institutional trust directly depresses support for government AI use. Only 57% support AI in public service delivery — one of the lowest rates globally — likely because trust in government to deploy it responsibly is so thin.'},
+  {a:'gov',b:'expertgap',label:'confidence diverges',desc:'AI experts are significantly more confident in both government and corporate capacity to govern AI responsibly. The public is not. This divergence means those building governance frameworks and those living under them see the landscape very differently.'},
+  {a:'gov',b:'bipartisan',label:'cross-party demand',desc:'Demand for AI regulation is one of the strongest cross-partisan findings in the dataset. Democrats and Republicans want "much more" regulation at nearly identical rates (57% vs 59%). This consensus is a policy window that remains largely unused.'},
+  {a:'workforce',b:'baseline',label:'anxiety feeds sentiment',desc:'Workforce anxiety is a major driver of overall negative AI sentiment. 67% of Americans believe AI will eliminate more jobs than it creates — the highest rate globally — and this fear bleeds directly into generalized distrust and concern.'},
+  {a:'workforce',b:'econlink',label:'anxiety → action?',desc:'The connection between economic anxiety and civic behavior is the missing link. We know Americans are deeply worried about AI\'s impact on work. We don\'t know if that worry is mobilizing them, disengaging them, or something else entirely.'},
+  {a:'workforce',b:'equity',label:'uneven impact',desc:'AI\'s workforce impacts are not evenly distributed. Lower-income workers, workers of color, and those in frontline roles face differential exposure — but the civic consequences of that uneven burden remain unmeasured.'},
+  {a:'baseline',b:'social',label:'isolation paradox',desc:'63% of LLM users — people who actively use and largely like AI — still believe it will cause social isolation. Satisfaction with AI and fear of its social consequences coexist. This tension runs through the civic fabric data.'},
+  {a:'baseline',b:'literacy',label:'use ≠ understanding',desc:'52% of Americans now use LLMs, but only 8% say they know "a lot" about AI. High adoption without comprehension creates a population navigating consequential tools they don\'t fully understand — a civic literacy problem.'},
+  {a:'baseline',b:'global',label:'U.S. outlier position',desc:'The U.S. is consistently among the most skeptical, least excited, and most distrustful of AI of any country surveyed — despite being where most of this technology originates. That paradox is a defining feature of the American civic AI story.'},
+  {a:'agency',b:'social',label:'autonomy + connection',desc:'Feeling in control of AI and feeling connected to others are linked concerns. A population that feels neither agency over AI nor trust in their social environment faces compounding civic risks.'},
+  {a:'agency',b:'civicgap',label:'civic control absent',desc:'59% of Americans feel little or no control over whether AI is used in their lives — but no survey asks specifically about control in civic contexts: over AI in government services, in political ads, in the information they receive about elections.'},
+  {a:'distrust',b:'gov',label:'compounds low confidence',desc:'Pre-existing distrust in institutions means AI governance proposals start from a deficit. Any government-led AI initiative inherits the credibility problem of the institution proposing it — only 7% trust government on AI at all.'},
+  {a:'distrust',b:'social',label:'erodes civic fabric',desc:'Distrust in institutions and distrust in AI are not separate phenomena — they reinforce each other and together erode the social trust that civic life depends on. Deliberation, organizing, and public discourse all require a baseline of shared trust.'},
+  {a:'distrust',b:'civicgap',label:'why behavior matters',desc:'Understanding civic behavior — not just attitudes — matters precisely because distrust is so high. In a low-trust environment, what people actually do with AI in civic contexts may diverge significantly from what they say they believe about it.'},
+  {a:'expertgap',b:'news',label:'who shapes civic info',desc:'AI experts are far more optimistic about AI\'s role in news and information than the public. This divergence matters because experts shape the tools, platforms, and policies that determine what civic information looks like — often without public input.'},
+  {a:'expertgap',b:'govuse',label:'adoption enthusiasm gap',desc:'Experts are significantly more enthusiastic about government AI adoption than citizens are. That gap creates a risk: governments may deploy AI in public services at a pace that outstrips public trust and readiness.'},
+  {a:'econlink',b:'equity',label:'disproportionate burden',desc:'Economic anxiety about AI is not evenly distributed — lower-income Americans and communities of color face greater job displacement risk and have fewer resources to adapt. The civic implications of that disparity are entirely unmeasured.'},
+  {a:'govuse',b:'civicgap',label:'use support ≠ actual use',desc:'Even where support for government AI use exists (57% for public services), we have no data on whether people actually use AI to navigate those services — or what happens when they do. Attitude data and behavior data are not the same thing.'},
 ];
 const stage=document.getElementById('stage');
 const sv=document.getElementById('sv');
 const tt=document.getElementById('tt');
 let sc=stage.offsetWidth/CW,tx=0,ty=0,drag=false,lx=0,ly=0;
 function toS(x,y){return{x:x*sc+tx,y:y*sc+ty};}
+function showTip(content,e){
+  tt.innerHTML=content;tt.style.display='block';moveTip(e);
+}
+function moveTip(e){
+  const rect=stage.getBoundingClientRect();
+  let px=e.clientX-rect.left+16,py=e.clientY-rect.top+16;
+  if(px+270>stage.offsetWidth)px=e.clientX-rect.left-278;
+  if(py+180>stage.offsetHeight)py=e.clientY-rect.top-150;
+  tt.style.left=px+'px';tt.style.top=py+'px';
+}
 function render(){
-  const W=stage.offsetWidth,H=stage.offsetHeight;
-  sv.setAttribute('width',W);sv.setAttribute('height',H);sv.innerHTML='';
+  const W=stage.offsetWidth;
+  sv.setAttribute('width',W);sv.setAttribute('height',stage.offsetHeight);sv.innerHTML='';
   for(const e of edges){
     const na=nodes.find(n=>n.id===e.a),nb=nodes.find(n=>n.id===e.b);
     if(!na||!nb)continue;
@@ -126,17 +139,36 @@ function render(){
     const isDense=(na.dense||na.center)&&(nb.dense||nb.center);
     const isGap=na.gap||nb.gap;
     const isCross=na.cross||nb.cross;
+    const mx=(x1+x2)/2,my=(y1+y2)/2;
+
+    // invisible wide hit line
+    const hit=document.createElementNS('http://www.w3.org/2000/svg','line');
+    hit.setAttribute('x1',x1);hit.setAttribute('y1',y1);
+    hit.setAttribute('x2',x2);hit.setAttribute('y2',y2);
+    hit.setAttribute('stroke','transparent');hit.setAttribute('stroke-width','18');
+    hit.style.cursor='pointer';
+    hit.addEventListener('mouseenter',ev=>showTip(`<b>${e.label}</b>${e.desc}`,ev));
+    hit.addEventListener('mousemove',ev=>moveTip(ev));
+    hit.addEventListener('mouseleave',()=>tt.style.display='none');
+
+    // visible line
     const line=document.createElementNS('http://www.w3.org/2000/svg','line');
     line.setAttribute('x1',x1);line.setAttribute('y1',y1);
     line.setAttribute('x2',x2);line.setAttribute('y2',y2);
     line.setAttribute('stroke',isGap?'rgba(185,48,48,0.3)':isCross?'rgba(100,90,200,0.28)':isDense?'rgba(26,146,104,0.35)':'rgba(255,255,255,0.1)');
     line.setAttribute('stroke-width',isDense?1.6:0.9);
     if(isGap)line.setAttribute('stroke-dasharray','4 3');
+    line.style.pointerEvents='none';
     sv.appendChild(line);
+    sv.appendChild(hit);
+
     if(e.label&&sc>0.48){
-      const mx=(x1+x2)/2,my=(y1+y2)/2;
       const g=document.createElementNS('http://www.w3.org/2000/svg','g');
       g.setAttribute('transform',`translate(${mx},${my})`);
+      g.style.cursor='pointer';
+      g.addEventListener('mouseenter',ev=>showTip(`<b>${e.label}</b>${e.desc}`,ev));
+      g.addEventListener('mousemove',ev=>moveTip(ev));
+      g.addEventListener('mouseleave',()=>tt.style.display='none');
       const tw=e.label.length*5.2+12;
       const pill=document.createElementNS('http://www.w3.org/2000/svg','rect');
       pill.setAttribute('x',-tw/2);pill.setAttribute('y',-8);
@@ -165,19 +197,11 @@ function render(){
     const fs=Math.max(9,Math.min(13.5,r*0.27));
     el.style.cssText=`width:${r*2}px;height:${r*2}px;left:${sx-r}px;top:${sy-r}px;background:${n.bg};z-index:10;box-shadow:0 2px 20px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.06);border:${n.gap?'1.5px dashed rgba(255,255,255,0.2)':n.center?'1px solid rgba(255,255,255,0.1)':'1px solid rgba(255,255,255,0.06)'};`;
     el.innerHTML=n.label.split('\n').map(l=>`<span style="font-size:${fs}px;font-weight:${n.center?'500':'400'};letter-spacing:0.01em">${l}</span>`).join('');
-    el.addEventListener('mouseenter',e=>showTip(n,e));
+    el.addEventListener('mouseenter',e=>showTip(`<b>${n.label.replace('\n',' ')}</b>${n.desc}`,e));
     el.addEventListener('mousemove',e=>moveTip(e));
     el.addEventListener('mouseleave',()=>tt.style.display='none');
     stage.appendChild(el);
   }
-}
-function showTip(n,e){tt.innerHTML=`<b>${n.label.replace('\n',' ')}</b>${n.desc}`;tt.style.display='block';moveTip(e);}
-function moveTip(e){
-  const rect=stage.getBoundingClientRect();
-  let lx=e.clientX-rect.left+16,ly=e.clientY-rect.top+16;
-  if(lx+250>stage.offsetWidth)lx=e.clientX-rect.left-260;
-  if(ly+160>stage.offsetHeight)ly=e.clientY-rect.top-130;
-  tt.style.left=lx+'px';tt.style.top=ly+'px';
 }
 stage.addEventListener('mousedown',e=>{if(!e.target.classList.contains('nd')){drag=true;lx=e.clientX;ly=e.clientY;}});
 window.addEventListener('mousemove',e=>{if(!drag)return;tx+=e.clientX-lx;ty+=e.clientY-ly;lx=e.clientX;ly=e.clientY;render();});
